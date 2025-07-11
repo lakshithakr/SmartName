@@ -1,6 +1,6 @@
 # 🌐 SmartName — AI-Powered Domain Name Recommendation System
 
-**SmartName** is an intelligent domain name recommendation system powered by AI and Natural Language Processing (NLP). It suggests creative and relevant domain names based on user input — with support for English, Sinhala, and mixed-language suggestions. Ideal for entrepreneurs, developers, and branding teams launching new digital products or businesses.
+**SmartName** is an intelligent domain name recommendation system powered by AI and Natural Language Processing (NLP). It suggests creative and relevant domain names based on user input. Ideal for entrepreneurs, developers, and branding teams launching new digital products or businesses.
 
 ---
 
