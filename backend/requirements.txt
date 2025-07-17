@@ -5,3 +5,5 @@ pandas
 transformers
 accelerate
 torch
+sentence-transformers
+faiss-cpu

@@ -3,9 +3,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess
+from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG
 app = FastAPI()
 
+import time
+
+start_all = time.time()
 
 
 class Prompt(BaseModel):
@@ -18,8 +21,19 @@ class DetailRequest(BaseModel):
 @app.post("/generate-domains/")
 async def generate_domains_endpoint(prompt: Prompt):
 
-    samples='morabike ,greenpedal,ecozoom ,commutiva  ,pedalwave  ,cyclovia  ,ridewell  ,urbicycle  ,biketraq  ,moracycle'
-    output=gemma(prompt.prompt,samples)
+    start_rag = time.time()
+    samples = RAG(prompt.prompt)
+    end_rag = time.time()
+    print(f"[RAG] Time taken: {end_rag - start_rag:.2f} seconds")
+
+    print(samples)
+
+    start_gemma = time.time()
+    output = gemma(prompt.prompt, samples)
+    end_gemma = time.time()
+    print(f"[Gemma] Time taken: {end_gemma - start_gemma:.2f} seconds")
+
+
     domain_names=gemma_post_processing(output)   # for  Gemma
 
     return {"domains": domain_names}
@@ -27,8 +41,15 @@ async def generate_domains_endpoint(prompt: Prompt):
 @app.post("/details/")
 async def get_domain_details(request: DetailRequest):
 
-    dd,domain_name=gemma_decsription(request.domain_name,request.prompt)
-    dd=gemma_preprocess(dd,domain_name) # for gemma
+    start_desc = time.time()
+    dd, domain_name = gemma_decsription(request.domain_name, request.prompt)
+    end_desc = time.time()
+    print(f"[gemma_description] Time taken: {end_desc - start_desc:.2f} seconds")
+
+    start_pre = time.time()
+    dd = gemma_preprocess(dd, domain_name)
+    end_pre = time.time()
+    print(f"[gemma_preprocess] Time taken: {end_pre - start_pre:.2f} seconds")
     return dd
 
 if __name__ == "__main__":

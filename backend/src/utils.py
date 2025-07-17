@@ -4,6 +4,12 @@ import re
 import json
 from dotenv import load_dotenv,find_dotenv
 import os
+import faiss
+import pickle
+from sentence_transformers import SentenceTransformer
+import random
+
+
 
 load_dotenv(find_dotenv())
 
@@ -14,9 +20,64 @@ tokenizer = AutoTokenizer.from_pretrained(model_id,token=HF_TOKEN)
 
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
-    torch_dtype=torch.bfloat16,
+    #torch_dtype=torch.bfloat16,
+    torch_dtype=torch.float16,
     device_map="auto"  # Uses your GPU automatically
 )
+
+# Detect device
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+#print(f"Using device: {device}")
+
+# Load model
+model_vdb = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2', device=device)
+
+# Load FAISS index
+index = faiss.read_index("VDB/category_index.faiss")
+
+# Move index to GPU if available
+# if device == 'cuda':
+#     res = faiss.StandardGpuResources()
+#     index = faiss.index_cpu_to_gpu(res, 0, index)
+#     print("FAISS index moved to GPU")
+
+# Load metadata
+with open("VDB/metadata.pkl", "rb") as f:
+    metadata = pickle.load(f)
+
+def RAG(query, top_k=20):
+    # Encode and normalize query
+    query_vec = model_vdb.encode([query], convert_to_numpy=True, normalize_embeddings=True)
+    
+    # Perform cosine similarity search
+    distances, indices = index.search(query_vec, top_k)
+
+    # Compile results
+    results = []
+    for i, idx in enumerate(indices[0]):
+        category = metadata[idx]['Category']
+        domains = metadata[idx]['Domain Names']
+        similarity = round(distances[0][i], 4)
+        results.append({
+            "category": category,
+            "domains": domains,
+            "similarity": similarity
+        })
+
+    domain_set = set()
+    for res in results:
+        if res['similarity'] > 0.5:
+            domain_set.update(res['domains'])
+
+    unique_domains = list(domain_set)
+
+    if  len(unique_domains)<10:
+        return "No Domain name Suggestions, Please prepare domain names using your intution"
+    else:
+        sampled_domains = random.sample(unique_domains, min(20, len(unique_domains)))
+        return ", ".join(sampled_domains)
+
+
 
 def gemma(user_description: str, sample_domains: str) -> str:
     input_text=f"""
@@ -56,7 +117,7 @@ def gemma_post_processing(output):
 
 def gemma_decsription(domain_name: str, prompt: str):
     template = f"""
-        You are a branding and domain expert.Generate a Python dictionary in the following format. The description should above 400 words,The meaning and structure of the domain name,An explanation of its root words or parts and how they were combined,Why it is a suitable and relevant choice for the prompt, it should describe how domain name suitable for the user requirements:
+        You are a branding and domain expert.Generate a Python dictionary in the following format.The meaning and structure of the domain name,An explanation of its root words or parts and how they were combined,Why it is a suitable and relevant choice for the prompt, it should describe how domain name suitable for the user requirements:
         Domain name: {domain_name}
         Prompt: {prompt}
         {{
@@ -69,7 +130,7 @@ def gemma_decsription(domain_name: str, prompt: str):
     """
     inputs = tokenizer(template , return_tensors="pt").to(model.device)
 
-    outputs = model.generate(**inputs, max_new_tokens=600)
+    outputs = model.generate(**inputs, max_new_tokens=250)
     output=tokenizer.decode(outputs[0], skip_special_tokens=True)
     #print(response.json())
     response = [{"generated_text": output}]
