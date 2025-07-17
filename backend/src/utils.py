@@ -1,0 +1,102 @@
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+import re
+import json
+from dotenv import load_dotenv,find_dotenv
+import os
+
+load_dotenv(find_dotenv())
+
+HF_TOKEN = os.environ.get("HF_API_KEY")
+
+model_id = "google/gemma-2-2b-it"
+tokenizer = AutoTokenizer.from_pretrained(model_id,token=HF_TOKEN)
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto"  # Uses your GPU automatically
+)
+
+def gemma(user_description: str, sample_domains: str) -> str:
+    input_text=f"""
+        You are an expert domain name generator. Your task is to create domain name suggestions that closely match the user's input and follow the style and pattern of the sample domain names provided.
+
+        User Input Description:
+        "{user_description}"
+
+        Sample Domain Names:
+        {sample_domains}
+
+        Instructions:
+        - Generate 10 to 15 domain names that fit the user's input description.
+        - The names should be short, easy to understand, creative, memorable, and relevant to the input.
+        - Use similar word structures and language style as the samples.
+        - Avoid overly long or complicated names; keep them concise and simple.
+        - Do not repeat exact sample names.
+        - Provide only the domain name suggestions without any domain extensions (like .com, .net, .lk).
+        - Provide the domain names in a numbered list .
+
+        Suggested Domain Names:
+"""
+    inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(**inputs, max_new_tokens=100)
+    output=tokenizer.decode(outputs[0], skip_special_tokens=True)
+    #print(response.json())
+    response = [{"generated_text": output}]
+    return response
+
+def gemma_post_processing(output):
+    text = output[0]['generated_text']
+    suggested_text = text.split("Suggested Domain Names:")[-1]
+    domain_names = re.findall(r'\d+\.\s*([A-Za-z0-9]+)', suggested_text)
+    domain_names = list(dict.fromkeys(domain_names))
+    return domain_names
+
+def gemma_decsription(domain_name: str, prompt: str):
+    template = f"""
+        You are a branding and domain expert.Generate a Python dictionary in the following format. The description should above 400 words,The meaning and structure of the domain name,An explanation of its root words or parts and how they were combined,Why it is a suitable and relevant choice for the prompt, it should describe how domain name suitable for the user requirements:
+        Domain name: {domain_name}
+        Prompt: {prompt}
+        {{
+            "domainName": "{domain_name}",
+            "domainDescription": "...",  # a creative description using the prompt
+            "relatedFields": [ ... ]     # 4 to 6 relevant fields
+        }}
+
+        output:
+    """
+    inputs = tokenizer(template , return_tensors="pt").to(model.device)
+
+    outputs = model.generate(**inputs, max_new_tokens=600)
+    output=tokenizer.decode(outputs[0], skip_special_tokens=True)
+    #print(response.json())
+    response = [{"generated_text": output}]
+    return response[0]['generated_text'],domain_name
+
+
+def gemma_preprocess(llm_output,domain_name):
+    try:
+        # Try to find a code block with ```json or ```python
+        code_block_match = re.search(r'```(?:json|python)?\s*(\{[\s\S]*?\})\s*```', llm_output, re.IGNORECASE)
+
+        if code_block_match:
+            json_string = code_block_match.group(1)
+        else:
+            # Fallback: try to find the last JSON-like block in the output
+            all_matches = re.findall(r'\{[\s\S]*?\}', llm_output)
+            if not all_matches:
+                raise ValueError("No JSON object found.")
+            json_string = all_matches[-1]  # Use the last one assuming it's the actual output
+
+        # Try to parse the JSON
+        parsed_json = json.loads(json_string)
+        return parsed_json
+
+    except Exception:
+        return {
+            "domainName": f"{domain_name}.lk",
+            "domainDescription": "Failed to parse response from LLM.",
+            "relatedFields": []
+        }
