@@ -10,7 +10,7 @@ const DomainDetails = () => {
     const prompt = sessionStorage.getItem("userPrompt");
     const domainName = sessionStorage.getItem("selectedDomain");
 
-    fetch("http://173.208.232.91:8000/details/", {
+    fetch(`${process.env.REACT_APP_API_URL}/details/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

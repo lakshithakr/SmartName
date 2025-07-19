@@ -4,9 +4,9 @@ services:
     build:
       context: ./frontend
     ports:
-      - "80:80"  # Updated from 3000:3000 to 80:80 for Nginx
+      - "3000:80"  # Updated from 3000:3000 to 80:80 for Nginx
     environment:
-      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_API_URL=https://smartname.lk/api
     env_file:
       - .env
     depends_on:

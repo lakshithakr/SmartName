@@ -26,7 +26,7 @@ const DomainList = () => {
 
   const fetchDomains = async (prompt) => {
     try {
-      const response = await fetch("http://173.208.232.91:8000/generate-domains/", {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/generate-domains/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

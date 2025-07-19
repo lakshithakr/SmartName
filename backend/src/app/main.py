@@ -11,8 +11,10 @@ origins = [
     "http://localhost",
     "http://127.0.0.1",
     "http://frontend",  # Docker service name
-    "http://173.208.232.91",  # Add this!
+    "http://173.208.232.91",
+    "http://173.208.232.91:3000",  # Add this!
     "http://localhost:3000",        # If testing locally
+    "https://smartname.lk",
     "http://localhost:80",          # If using Nginx
     "http://0.0.0.0"                # Optional
     ] # Adjust if your frontend is hosted elsewhere
