@@ -6,6 +6,25 @@ from pydantic import BaseModel
 from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG
 app = FastAPI()
 
+
+origins = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://frontend",  # Docker service name
+    "http://173.208.232.91",  # Add this!
+    "http://localhost:3000",        # If testing locally
+    "http://localhost:80",          # If using Nginx
+    "http://0.0.0.0"                # Optional
+    ] # Adjust if your frontend is hosted elsewhere
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 import time
 
 start_all = time.time()

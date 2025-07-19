@@ -15,12 +15,16 @@ load_dotenv(find_dotenv())
 
 HF_TOKEN = os.environ.get("HF_API_KEY")
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"Using device: {device}")
+
 model_id = "google/gemma-2-2b-it"
 tokenizer = AutoTokenizer.from_pretrained(model_id,token=HF_TOKEN)
 
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
     #torch_dtype=torch.bfloat16,
+    token=HF_TOKEN,
     torch_dtype=torch.float16,
     device_map="auto"  # Uses your GPU automatically
 )
