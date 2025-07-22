@@ -15,4 +15,7 @@ SmartName/
 ├── backend/           # FastAPI backend handling AI inference and APIs
 ├── frontend/          # React.js frontend interface for user interaction
 ├── docker-compose.yml # Docker orchestration file
-└── README.md          # You're here!
+└── README.md          # You're here
+
+## Product
+https://smartname.lk
