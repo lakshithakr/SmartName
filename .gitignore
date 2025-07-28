@@ -1,2 +1,7 @@
 .env
 /backend/VDB/
+/mongo-data
+/backend/names.txt
+/frontend/public/faviconn.ico
+/frontend/src/Images/background_7.png
+

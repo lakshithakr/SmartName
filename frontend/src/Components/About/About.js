@@ -7,7 +7,7 @@ const About = () => {
         <div className="about-content">
             <h2>What Is SmartName?</h2>
             <p>
-                <a href="#">SmartName</a> is an AI-powered domain name recommendation system designed to help you find creative, relevant, and impactful domain names. Whether you're launching a business, project, or personal brand, Dominios leverages advanced natural language processing and machine learning techniques to suggest domain names tailored to your input, combining both English and Sinhala terms when needed. It focuses on generating unique, brandable, and available domain names that resonate with your desired audience.
+                <a href="#">SmartName</a> is an AI-powered domain name recommendation system that helps you discover creative, relevant, and impactful domain names. Whether you're starting a business, launching a project, or building a personal brand, SmartName uses advanced natural language processing and machine learning to suggest unique, brandable, and available domain names tailored to your needs. It focuses on delivering names that truly connect with your audience, making the process of finding the perfect domain faster and smarter.
             </p>
         </div>
         <div className="about-image">

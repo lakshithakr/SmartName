@@ -30,3 +30,14 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27018:27017"
+    volumes:
+      - ./mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: smartname

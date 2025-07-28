@@ -6,7 +6,7 @@ const Navbar = () => {
         <div className='navbar-brand'><a href='/'>SmartName</a></div>
         <ul className='navbar-links'>
             <li><a href='/'>Home</a></li>
-            <li><a href='/help'>Help</a></li>
+            {/* <li><a href='/help'>Help</a></li> */}
             <li><a href='/about'>About Us</a></li>
             <li><a href='/contact'>Conatct Us</a></li>
         </ul>

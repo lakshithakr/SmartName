@@ -36,12 +36,12 @@ const DomainDetails = () => {
     <div className="domain-details container py-5">
       <div className="row">
         <div className="col-12">
-          <h1 className="domain-title text-center mb-4">{domainDetails.domainName}</h1>
+          <h1 className="domain-title text-center mb-4">{domainDetails.domainName}.lk</h1>
 
           <hr className="section-divider my-4" />
 
           <div className="about-domain">
-            <h2 className="section-heading mb-3">About {domainDetails.domainName}</h2>
+            <h2 className="section-heading mb-3">About {domainDetails.domainName}.lk</h2>
             <p className="domain-description mb-3">
                 {domainDetails.domainDescription}
             </p>
@@ -67,6 +67,20 @@ const DomainDetails = () => {
             >
               Visit domains.lk
             </a>
+            {/* <div className="mt-3">
+              <p>
+                Loved your domain suggestions?{' '}
+                <a
+                  href="https://cloud.domains.lk/index.php/apps/forms/s/jnaRpqMsw4kW34w9aQzc9bH7"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="feedback-link"
+                >
+                  Click here
+                </a>{' '}
+                to share your feedback and help us improve!
+              </p>
+            </div> */}
           </div>
         </div>
       </div>

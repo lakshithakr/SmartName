@@ -7,7 +7,7 @@ const Description = () => {
         <div className="description-content">
             <h2>How It Works?</h2>
             <p>
-                <a href="#">SmartName</a> analyzes the keywords, themes, and context you provide using AI models trained on a diverse dataset of web, business, and linguistic patterns. It understands your requirements and combines creativity with data-driven insights to suggest domain names. The system incorporates both English and Sinhala language blending, evaluates the relevance and appeal of generated names, and checks for domain availability. The result is a curated list of smart, meaningful domain names ready for you to choose from.
+                <a href="#">SmartName</a> analyzes the keywords, themes, and context you provide using powerful AI models trained on a rich dataset of web, business, and linguistic patterns. It understands your goals and combines creativity with data-driven insights to generate domain name suggestions. The system evaluates the relevance, uniqueness, and brand appeal of each name, while also checking for domain availability. The result is a curated list of smart, meaningful domain names—ready for you to choose and launch with confidence.
             </p>
         </div>
         <div className="description-image">

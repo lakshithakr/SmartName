@@ -49,6 +49,11 @@ index = faiss.read_index("VDB/category_index.faiss")
 with open("VDB/metadata.pkl", "rb") as f:
     metadata = pickle.load(f)
 
+
+with open("names.txt", "r") as file:
+    retrived_domain_names_list = [line.strip() for line in file]
+domain_name_set = set(retrived_domain_names_list)
+
 def RAG(query, top_k=20):
     # Encode and normalize query
     query_vec = model_vdb.encode([query], convert_to_numpy=True, normalize_embeddings=True)
@@ -78,7 +83,8 @@ def RAG(query, top_k=20):
     if  len(unique_domains)<10:
         return "No Domain name Suggestions, Please prepare domain names using your intution"
     else:
-        sampled_domains = random.sample(unique_domains, min(20, len(unique_domains)))
+        # sampled_domains = random.sample(unique_domains, min(20, len(unique_domains)))
+        sampled_domains = unique_domains[:20]
         return ", ".join(sampled_domains)
 
 
@@ -165,3 +171,11 @@ def gemma_preprocess(llm_output,domain_name):
             "domainDescription": "Failed to parse response from LLM.",
             "relatedFields": []
         }
+
+def is_domain_names_available(generated_name_list):
+    available_name_list = []
+    for name in generated_name_list:
+        temp = name.lower().split(".")[0]
+        if temp not in domain_name_set:
+            available_name_list.append(name)
+    return available_name_list

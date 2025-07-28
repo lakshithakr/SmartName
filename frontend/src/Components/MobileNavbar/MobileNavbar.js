@@ -23,9 +23,9 @@ function MobileNavbar(){
                                 <li className="nav-item-mobile">
                                     <Link to="/">Home</Link> 
                                 </li>
-                                <li className="nav-item-mobile">
+                                {/* <li className="nav-item-mobile">
                                     <Link to="/help">Help</Link>      
-                                </li>
+                                </li> */}
         
         
                                 <li className="nav-item-mobile">

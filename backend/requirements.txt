@@ -7,3 +7,7 @@ accelerate
 torch
 sentence-transformers
 faiss-cpu
+pymongo
+dnspython
+pydantic[email]
+pytz
