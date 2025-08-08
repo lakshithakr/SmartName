@@ -1,44 +1,213 @@
 .domain-card {
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    font-weight: bold;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer;
-  }
+  background: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
 
 .domain-card:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-  }
-  
-  
-  .card-body {
-    position: relative;
-  }
-  
-  .card-body .card-title {
-    font-size: 24px;
-    font-weight: 600;
-  }
-  
-  .btn-sm {
-    font-size: 12px;
-  }
+  border-color: #007bff;
+  box-shadow: 0 4px 16px rgba(0, 123, 255, 0.15);
+  transform: translateY(-2px);
+}
 
-  .btn{
-    border-radius: 30px;
+.domain-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.domain-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  word-break: break-word;
+}
+
+.availability-badge {
+  background: #28a745;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.domain-card-body {
+  padding: 1rem 1.25rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.description-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.description-skeleton {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-line.short {
+  width: 70%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
   }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
 
-  @media (max-width:1000px) {
-    .card-body .card-title {
-      font-size: 16px;
-      font-weight: 600;
-    }
-    
-    .btn-sm {
-      font-size: 8px;
-    }
+.loading-text {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+}
+
+.domain-description {
+  flex-grow: 1;
+}
+
+.description-text {
+  color: #495057;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.related-fields {
+  margin-top: auto;
+}
+
+.fields-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field-tag {
+  background: #f8f9fa;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #e9ecef;
+}
+
+.field-tag.more {
+  background: #e9ecef;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.no-description {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.description-placeholder {
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  padding: 1rem 0;
+}
+
+.domain-card-footer {
+  padding: 0.75rem 1.25rem 1.25rem 1.25rem;
+  border-top: 1px solid #f1f3f4;
+  margin-top: auto;
+}
+
+.view-details-btn {
+  background: transparent;
+  border: none;
+  color: #007bff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.view-details-btn:hover {
+  color: #0056b3;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .domain-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+  }
   
+  .availability-badge {
+    align-self: flex-end;
+  }
+  
+  .domain-name {
+    font-size: 1rem;
+  }
+  
+  .description-text {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .domain-card {
+    margin-bottom: 1rem;
+  }
+  
+  .field-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
 }

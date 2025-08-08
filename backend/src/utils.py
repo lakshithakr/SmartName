@@ -9,8 +9,6 @@ import pickle
 from sentence_transformers import SentenceTransformer
 import random
 
-
-
 load_dotenv(find_dotenv())
 
 HF_TOKEN = os.environ.get("HF_API_KEY")
@@ -49,7 +47,6 @@ index = faiss.read_index("VDB/category_index.faiss")
 with open("VDB/metadata.pkl", "rb") as f:
     metadata = pickle.load(f)
 
-
 with open("names.txt", "r") as file:
     retrived_domain_names_list = [line.strip() for line in file]
 domain_name_set = set(retrived_domain_names_list)
@@ -86,8 +83,6 @@ def RAG(query, top_k=20):
         # sampled_domains = random.sample(unique_domains, min(20, len(unique_domains)))
         sampled_domains = unique_domains[:20]
         return ", ".join(sampled_domains)
-
-
 
 def gemma(user_description: str, sample_domains: str) -> str:
     input_text=f"""
@@ -127,12 +122,12 @@ def gemma_post_processing(output):
 
 def gemma_decsription(domain_name: str, prompt: str):
     template = f"""
-        You are a branding and domain expert.Generate a Python dictionary in the following format.The meaning and structure of the domain name,An explanation of its root words or parts and how they were combined,Why it is a suitable and relevant choice for the prompt, it should describe how domain name suitable for the user requirements:
+        You are a branding and domain expert. Generate a Python dictionary in the following format. The meaning and structure of the domain name, An explanation of its root words or parts and how they were combined, Why it is a suitable and relevant choice for the prompt, it should describe how domain name suitable for the user requirements:
         Domain name: {domain_name}
         Prompt: {prompt}
         {{
             "domainName": "{domain_name}",
-            "domainDescription": "...",  # a creative description using the prompt
+            "domainDescription": "...",  # a creative description using the prompt (2-3 sentences)
             "relatedFields": [ ... ]     # 4 to 6 relevant fields
         }}
 
@@ -145,7 +140,6 @@ def gemma_decsription(domain_name: str, prompt: str):
     #print(response.json())
     response = [{"generated_text": output}]
     return response[0]['generated_text'],domain_name
-
 
 def gemma_preprocess(llm_output,domain_name):
     try:

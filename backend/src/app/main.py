@@ -5,23 +5,16 @@ from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
 from fastapi import Request
 import pytz
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG, is_domain_names_available
+import asyncio
+
 app = FastAPI()
 
-
 origins = [
-    #"http://localhost",
-    #"http://127.0.0.1",
-    #"http://frontend",  # Docker service name
-    #"http://173.208.232.91",
-    #"http://173.208.232.91:3000",  # Add this!
-    #"http://localhost:3000",        # If testing locally
     "https://smartname.lk",
-    #"http://localhost:80",          # If using Nginx
-    #"http://0.0.0.0"                # Optional
-    ] # Adjust if your frontend is hosted elsewhere
+] # Adjust if your frontend is hosted elsewhere
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,18 +35,23 @@ import time
 
 start_all = time.time()
 
-
 class Prompt(BaseModel):
     prompt: str
 
 class DetailRequest(BaseModel):
     prompt: str
     domain_name: str
+
+class BulkDescriptionRequest(BaseModel):
+    prompt: str
+    domain_names: List[str]
+
 class Feedback(BaseModel):
     rating: int
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     comment: str
+
 class DescriptionEntry(BaseModel):
     prompt: str
     domain_name: str
@@ -86,7 +84,6 @@ async def generate_domains_endpoint(prompt: Prompt,request: Request):
     end_gemma = time.time()
     print(f"[Gemma] Time taken: {end_gemma - start_gemma:.2f} seconds")
 
-
     domain_names=gemma_post_processing(output)   # for  Gemma
     domain_names=is_domain_names_available(domain_names)
 
@@ -99,7 +96,6 @@ async def generate_domains_endpoint(prompt: Prompt,request: Request):
         ip_address = x_forwarded_for.split(",")[0].strip()
     else:
         ip_address = request.client.host
-    #ip_address = request.client.host
 
     log_entry = {
         "search_query": prompt.prompt,
@@ -109,6 +105,54 @@ async def generate_domains_endpoint(prompt: Prompt,request: Request):
     }
     search_log_collection.insert_one(log_entry)
     return {"domains": domain_names}
+
+@app.post("/generate-bulk-descriptions/")
+async def generate_bulk_descriptions(request: BulkDescriptionRequest, fastapi_request: Request):
+    """Generate descriptions for multiple domains"""
+    descriptions = {}
+    
+    # Get IP
+    x_forwarded_for = fastapi_request.headers.get('X-Forwarded-For')
+    if x_forwarded_for:
+        ip_address = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip_address = fastapi_request.client.host
+
+    sri_lanka_tz = pytz.timezone("Asia/Colombo")
+    
+    for domain_name in request.domain_names:
+        try:
+            start_desc = time.time()
+            dd, domain_name_processed = gemma_decsription(domain_name, request.prompt)
+            end_desc = time.time()
+            print(f"[gemma_description for {domain_name}] Time taken: {end_desc - start_desc:.2f} seconds")
+
+            start_pre = time.time()
+            processed_description = gemma_preprocess(dd, domain_name_processed)
+            end_pre = time.time()
+            print(f"[gemma_preprocess for {domain_name}] Time taken: {end_pre - start_pre:.2f} seconds")
+            
+            descriptions[domain_name] = processed_description
+            
+            # Save to MongoDB
+            description_entry = DescriptionEntry(
+                prompt=request.prompt,
+                domain_name=domain_name,
+                description=processed_description,
+                timestamp=datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S"),
+                ip_address=ip_address
+            )
+            descriptions_collection.insert_one(description_entry.dict())
+            
+        except Exception as e:
+            print(f"Error generating description for {domain_name}: {e}")
+            descriptions[domain_name] = {
+                "domainName": f"{domain_name}.lk",
+                "domainDescription": "Description generation failed.",
+                "relatedFields": []
+            }
+    
+    return {"descriptions": descriptions}
 
 @app.post("/details/")
 async def get_domain_details(request: DetailRequest,fastapi_request: Request):
