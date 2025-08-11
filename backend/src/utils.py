@@ -8,7 +8,7 @@ import faiss
 import pickle
 from sentence_transformers import SentenceTransformer
 import random
-
+import pronouncing
 
 
 load_dotenv(find_dotenv())
@@ -179,3 +179,48 @@ def is_domain_names_available(generated_name_list):
         if temp not in domain_name_set:
             available_name_list.append(name)
     return available_name_list
+
+def sort_domains_by_pronounceability(domains):
+    def domain_score(name):
+        words = re.sub('([a-z])([A-Z])', r'\1 \2', name).split()
+        if not words:
+            return 0.0
+        
+        def pronounceability_score(word):
+            phones = pronouncing.phones_for_word(word.lower())
+            if not phones:
+                return 0.0
+            phonemes = phones[0].split()
+            num_vowels = sum(1 for p in phonemes if any(v in p for v in "AEIOU"))
+            vowel_ratio = num_vowels / len(phonemes)
+            vowel_score = 1 - abs(vowel_ratio - 0.4)
+            score = (vowel_score + (1 / len(phonemes))) / 2
+            return round(score, 3)
+        
+        return round(sum(pronounceability_score(w) for w in words) / len(words), 3)
+    
+    return sorted(domains, key=domain_score, reverse=True)
+
+
+def extend_domains(domains):
+    prefixes = ["Smart", "Pure", "Pro", "Star", "Bold"]
+    suffixes = ["Spark", "Right", "Spire", "Verse"]
+
+    extended = []
+
+    for domain in domains:
+        # Ensure first letter capitalized
+        domain_cap = domain.capitalize()
+
+        # Add original domain
+        extended.append(domain_cap)
+
+        # Add prefixed names
+        for pre in prefixes:
+            extended.append(pre + domain_cap)
+
+        # Add suffixed names
+        for suf in suffixes:
+            extended.append(domain_cap + suf)
+
+    return extended

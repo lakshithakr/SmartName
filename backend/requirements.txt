@@ -11,3 +11,4 @@ pymongo
 dnspython
 pydantic[email]
 pytz
+pronouncing
