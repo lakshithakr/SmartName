@@ -12,3 +12,4 @@ dnspython
 pydantic[email]
 pytz
 pronouncing
+g2p_en

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 const DomainList = () => {
   const [domainNames, setDomainNames] = useState([]);
+  const [extraDomainNames, setExtraDomainNames] = useState([]);
   const [visibleDomains, setVisibleDomains] = useState(6);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState("");
@@ -13,6 +14,8 @@ const DomainList = () => {
   const [feedbackEmail, setFeedbackEmail] = useState("");
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [showExtra, setShowExtra] = useState(false);
+
   const navigate = useNavigate();
 
   const handleLoadMore = () => {
@@ -22,31 +25,37 @@ const DomainList = () => {
   const handleNewSearch = (e) => {
     e.preventDefault();
     if (searchInput.trim() === "") return;
-    
+
     sessionStorage.setItem("userPrompt", searchInput);
-    sessionStorage.removeItem("cachedDomains"); // Clear cache for new search
+    sessionStorage.removeItem("cachedDomains");
+    sessionStorage.removeItem("cachedExtraDomains");
+    setExtraDomainNames([]);
+    setShowExtra(false);
     setLoading(true);
     fetchDomains(searchInput);
+    setVisibleDomains(6);
   };
 
   const fetchDomains = async (prompt) => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/generate-domains/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
       const data = await response.json();
       setDomainNames(data.domains);
-      // Cache the results
-      sessionStorage.setItem("cachedDomains", JSON.stringify({
-        prompt,
-        domains: data.domains,
-        timestamp: Date.now()
-      }));
+
+      sessionStorage.setItem(
+        "cachedDomains",
+        JSON.stringify({
+          prompt,
+          domains: data.domains,
+          timestamp: Date.now(),
+        })
+      );
+
       setLoading(false);
     } catch (error) {
       console.error("Error fetching domains:", error);
@@ -54,22 +63,61 @@ const DomainList = () => {
     }
   };
 
+  const fetchExtraDomains = async (prompt) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/generate-extra-domains/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const result = await res.json();
+      setExtraDomainNames(result.domains);
+
+      // Cache extra domains
+      sessionStorage.setItem(
+        "cachedExtraDomains",
+        JSON.stringify({
+          prompt,
+          domains: result.domains,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err) {
+      console.error("Error fetching extra domains:", err);
+    }
+  };
+
   useEffect(() => {
     const prompt = sessionStorage.getItem("userPrompt") || "default";
     setSearchInput(prompt);
 
-    // Check for cached domains
     const cachedData = sessionStorage.getItem("cachedDomains");
+    const cachedExtra = sessionStorage.getItem("cachedExtraDomains");
+
+    // Load main domains from cache if available
     if (cachedData) {
       const { prompt: cachedPrompt, domains } = JSON.parse(cachedData);
       if (cachedPrompt === prompt) {
         setDomainNames(domains);
         setLoading(false);
-        return;
+      } else {
+        fetchDomains(prompt);
       }
+    } else {
+      fetchDomains(prompt);
     }
-    
-    fetchDomains(prompt);
+
+    // Load extra domains from cache if available
+    if (cachedExtra) {
+      const { prompt: cachedPromptExtra, domains: extra } = JSON.parse(cachedExtra);
+      if (cachedPromptExtra === prompt) {
+        setExtraDomainNames(extra);
+      } else {
+        fetchExtraDomains(prompt);
+      }
+    } else {
+      fetchExtraDomains(prompt);
+    }
   }, []);
 
   const handleFeedbackSubmit = async (e) => {
@@ -85,9 +133,7 @@ const DomainList = () => {
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/submit-feedback/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(feedbackData),
       });
 
@@ -111,43 +157,90 @@ const DomainList = () => {
     return (
       <div className="loading-container">
         <div className="spinner"></div>
-        <p className="loading-text">Fetching domain Names...</p>
+        <p className="loading-text">Fetching domain names...</p>
       </div>
     );
   }
 
   return (
     <div className="new-container">
+      {/* Search Box */}
       <div className="new-search">
-          <form onSubmit={handleNewSearch} className="search-box">
-            <input
-              type="text"
-              placeholder="Search for new domain names..."
-              className="search-input"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <button type="submit" className="search-button">
-              Search
-            </button>
-          </form>
+        <form onSubmit={handleNewSearch} className="search-box">
+          <input
+            type="text"
+            placeholder="Search for new domain names..."
+            className="search-input"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+          <button type="submit" className="search-button">
+            Search
+          </button>
+        </form>
       </div>
+
+      {/* Main Domains */}
       <div className="container">
-      <div className="row justify-content-around">
-        {domainNames.slice(0, visibleDomains).map((name, index) => (
-          <div className="item col-lg-6 col-md-6 col-sm-12 mb-4" key={index}>
-            <DomainCard domainName={name} />
+        <div className="row justify-content-around">
+          {domainNames.slice(0, visibleDomains).map((name, index) => (
+            <div className="item col-lg-6 col-md-6 col-sm-12 mb-4" key={index}>
+              <DomainCard domainName={name} />
+            </div>
+          ))}
+        </div>
+
+        {/* Load More Button for Main Domains */}
+        {visibleDomains < domainNames.length && (
+          <div className="load text-center">
+            <button className="button" onClick={handleLoadMore}>
+              Load More
+            </button>
           </div>
-        ))}
+        )}
       </div>
-      {visibleDomains < domainNames.length && (
-        <div className="load text-center">
-          <button className="button" onClick={handleLoadMore}>
-            Load More
+
+      {/* Additional Suggestions Button */}
+      {extraDomainNames.length > 0 && !showExtra && visibleDomains >= domainNames.length && (
+        <div className="text-center mt-4">
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => setShowExtra(true)}
+          >
+            Load More Names
           </button>
         </div>
       )}
-      </div>
+
+      {/* Additional Suggestions Section */}
+      {showExtra && extraDomainNames.length > 0 && (
+        <div className="container mt-5">
+          <div className="additional-grid">
+            {extraDomainNames.map((name, index) => (
+              <div className="additional-item" key={`extra-${index}`}>
+                <a
+                  href={`https://register.domains.lk/domains-search?keywords=${name}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+                >
+                  {name}.lk
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-3">
+            <button
+              className="btn btn-outline-danger"
+              onClick={() => setShowExtra(false)}
+            >
+              Hide Additional Suggestions
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Section */}
       <div className="feedback-section mt-5 p-4 border rounded bg-light">
         <h4 className="text-center mb-3">Share Your Feedback</h4>
@@ -160,7 +253,7 @@ const DomainList = () => {
                 style={{
                   cursor: "pointer",
                   color: feedbackRating >= star ? "#ffc107" : "#e4e5e9",
-                  fontSize: "1.5rem"
+                  fontSize: "1.5rem",
                 }}
                 onClick={() => setFeedbackRating(star)}
               >
@@ -204,9 +297,7 @@ const DomainList = () => {
           </button>
 
           {feedbackStatus && (
-            <div className="alert alert-info mt-3 text-center">
-              {feedbackStatus}
-            </div>
+            <div className="alert alert-info mt-3 text-center">{feedbackStatus}</div>
           )}
         </form>
       </div>

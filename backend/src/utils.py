@@ -6,10 +6,14 @@ from dotenv import load_dotenv,find_dotenv
 import os
 import faiss
 import pickle
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer,util
 import random
 import pronouncing
-
+import csv
+from g2p_en import G2p
+import nltk
+nltk.download('averaged_perceptron_tagger_eng')
+g2p = G2p()
 
 load_dotenv(find_dotenv())
 
@@ -53,6 +57,18 @@ with open("VDB/metadata.pkl", "rb") as f:
 with open("names.txt", "r") as file:
     retrived_domain_names_list = [line.strip() for line in file]
 domain_name_set = set(retrived_domain_names_list)
+
+
+# ==== Load root words dictionary (only once) ====
+def load_domain_dict(root_words_csv="Root_Words.csv"):
+    domain_dict = {}
+    with open(root_words_csv, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            domain_dict[row['name'].lower()] = row['Split_Words']
+    return domain_dict
+
+domain_dict = load_domain_dict("Root_Words.csv")
 
 def RAG(query, top_k=20):
     # Encode and normalize query
@@ -223,4 +239,88 @@ def extend_domains(domains):
         for suf in suffixes:
             extended.append(domain_cap + suf)
 
-    return extended
+    return extended[:15]
+
+def get_domain_scores(domains):
+    results = []
+
+    def pronounceability_score(word):
+        phones = pronouncing.phones_for_word(word.lower())
+        if phones:
+            phonemes = phones[0].split()
+        else:
+            phonemes = [p for p in g2p(word) if p.isalpha()]
+        
+        if not phonemes:
+            return 0.0
+
+        num_vowels = sum(1 for p in phonemes if any(v in p for v in "AEIOU"))
+        vowel_ratio = num_vowels / len(phonemes)
+        vowel_score = 1 - abs(vowel_ratio - 0.4)
+        score = (vowel_score + (1 / len(phonemes))) / 2
+        return round(score, 3)
+
+    for name in domains:
+        words = re.sub('([a-z])([A-Z])', r'\1 \2', name).split()
+        if not words:
+            avg_score = 0.0
+        else:
+            avg_score = round(sum(pronounceability_score(w) for w in words) / len(words), 3)
+        results.append((name, avg_score))
+    
+    # Sort by score descending, then return only domain names
+    sorted_domains = sorted(results, key=lambda x: x[1], reverse=True)
+    return [domain for domain, score in sorted_domains]
+
+
+
+
+def generate_domain_suggestions(query, top_k=20):
+    """
+    Generates a sorted list of domain name suggestions from a business description.
+    """
+    # 1. Search categories in FAISS
+    query_vec = model_vdb.encode([query], convert_to_numpy=True, normalize_embeddings=True)
+    distances, indices = index.search(query_vec, top_k)
+
+    domain_set = set()
+    for i, idx in enumerate(indices[0]):
+        similarity = round(distances[0][i], 4)
+        if similarity > 0.5:
+            domain_set.update(metadata[idx]['Domain Names'])
+
+    unique_domains = list(domain_set)
+    if len(unique_domains) < 5:
+        return []
+
+    sampled_domains = unique_domains[:20]
+
+    # 2. Generate combined names
+    first_words, second_words = [], []
+    for name in sampled_domains:
+        rootwords = domain_dict.get(name.lower())
+        if rootwords:
+            words = rootwords.split()
+            if len(words) >= 1:
+                first_words.append(words[0])
+            if len(words) >= 2:
+                second_words.append(words[1])
+
+    first_words = list(set(first_words))[:10]
+    second_words = list(set(second_words))[:10]
+    combined_names = [f + s for f in first_words for s in second_words]
+    combined_names = list(set(combined_names))
+
+    # 3. Rank combined names by similarity, but return only names
+    query_embedding = model_vdb.encode(query, convert_to_tensor=True)
+    domain_embeddings = model_vdb.encode(combined_names, convert_to_tensor=True)
+    cosine_scores = util.pytorch_cos_sim(query_embedding, domain_embeddings)[0]
+
+    # Sort by similarity but only return names
+    sorted_names = [name for name, _ in sorted(
+        zip(combined_names, cosine_scores.tolist()),
+        key=lambda x: x[1],
+        reverse=True
+    )]
+
+    return sorted_names[:28]

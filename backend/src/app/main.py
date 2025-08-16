@@ -7,7 +7,7 @@ from fastapi import Request
 import pytz
 from typing import Optional
 from datetime import datetime
-from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG, is_domain_names_available
+from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG, is_domain_names_available,extend_domains,get_domain_scores,generate_domain_suggestions
 app = FastAPI()
 
 
@@ -61,6 +61,19 @@ class DescriptionEntry(BaseModel):
     timestamp: str
     ip_address: Optional[str] = None
 
+
+@app.post("/generate-extra-domains/")
+async def generate_extra_domains(prompt: Prompt):
+    # This is just a dummy implementation for testing.
+    # In production, you could hook this up to your own generation logic.
+    # time.sleep(5)
+    # dummy_domains = ["RentCar","RentCar","RentCar","RentCar","RentCar","RentCar"
+    dummy_domains=generate_domain_suggestions(prompt.prompt)
+    dummy_domains=get_domain_scores(dummy_domains)
+    # ]
+    #dummy_domains=[]
+    return {"domains": dummy_domains}
+
 @app.post("/submit-feedback/")
 def submit_feedback(feedback: Feedback):
     feedback_data = feedback.dict()
@@ -88,8 +101,10 @@ async def generate_domains_endpoint(prompt: Prompt,request: Request):
 
 
     domain_names=gemma_post_processing(output)   # for  Gemma
+    if len(domain_names)<4 and len(domain_names)>0:
+        domain_names=extend_domains(domain_names)
     domain_names=is_domain_names_available(domain_names)
-
+    domain_names=get_domain_scores(domain_names)
     sri_lanka_tz = pytz.timezone("Asia/Colombo")
     timestamp = datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S")
 

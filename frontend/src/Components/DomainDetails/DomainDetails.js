@@ -43,7 +43,7 @@ const DomainDetails = () => {
           <div className="about-domain">
             <h2 className="section-heading mb-3">About {domainDetails.domainName}.lk</h2>
             <p className="domain-description mb-3">
-                {domainDetails.domainDescription}
+              {domainDetails.domainDescription}
             </p>
           </div>
 
@@ -60,14 +60,15 @@ const DomainDetails = () => {
 
           <div className="domain-cta mt-4 text-center">
             <a 
-              href='https://www.domains.lk/' 
+              href={`https://register.domains.lk/domains-search?keywords=${domainDetails.domainName}`} 
               className="btn btn-primary domain-link-btn"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Visit domains.lk
+              Proceed
             </a>
-            {/* <div className="mt-3">
+            {/* 
+            <div className="mt-3">
               <p>
                 Loved your domain suggestions?{' '}
                 <a
@@ -80,7 +81,8 @@ const DomainDetails = () => {
                 </a>{' '}
                 to share your feedback and help us improve!
               </p>
-            </div> */}
+            </div> 
+            */}
           </div>
         </div>
       </div>

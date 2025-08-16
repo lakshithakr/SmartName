@@ -182,3 +182,37 @@ button {
   display: block;
   margin: 0 auto;
 }
+
+.additional-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.additional-item {
+  background-color: white;
+  color: black;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border: 2px solid black;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.additional-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+/* Responsive: 2 columns on smaller screens */
+@media (max-width: 768px) {
+  .additional-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

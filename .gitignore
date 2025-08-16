@@ -1,7 +1,9 @@
 .env
 /backend/VDB/
+/backend/Final_VDB/
 /mongo-data
 /backend/names.txt
+/backend/Root_Words.csv
 /frontend/public/faviconn.ico
 /frontend/src/Images/background_7.png
 
