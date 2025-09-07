@@ -13,3 +13,4 @@ pydantic[email]
 pytz
 pronouncing
 g2p_en
+python-json-logger

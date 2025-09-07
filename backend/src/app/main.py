@@ -1,28 +1,39 @@
+import logging
 import sys
-from fastapi import FastAPI
+import time
+import uuid
+from pythonjsonlogger import jsonlogger
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
-from fastapi import Request
-import pytz
 from typing import Optional
 from datetime import datetime
-from src.utils import gemma,gemma_post_processing,gemma_decsription,gemma_preprocess,RAG, is_domain_names_available,extend_domains,get_domain_scores,generate_domain_suggestions
+import pytz
+import os
+import json
+
+from src.utils import (
+    gemma, gemma_post_processing, gemma_decsription, gemma_preprocess,
+    RAG, is_domain_names_available, extend_domains, get_domain_scores, generate_domain_suggestions,extend_domain_list_shorting,remove_case_duplicates
+)
+
+# ---- Logging config (JSON to stdout) ----
+logger = logging.getLogger()
+logger.handlers = []  # avoid duplicate handlers in reload
+handler = logging.StreamHandler(sys.stdout)
+formatter = jsonlogger.JsonFormatter()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 app = FastAPI()
 
-
 origins = [
-    #"http://localhost",
-    #"http://127.0.0.1",
-    #"http://frontend",  # Docker service name
-    #"http://173.208.232.91",
-    #"http://173.208.232.91:3000",  # Add this!
-    #"http://localhost:3000",        # If testing locally
     "https://smartname.lk",
-    #"http://localhost:80",          # If using Nginx
-    #"http://0.0.0.0"                # Optional
-    ] # Adjust if your frontend is hosted elsewhere
-
+    "https://smartnames.lk"
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -31,17 +42,42 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-MONGO_URI = "mongodb://173.208.232.91:27018"
+# ---- Request ID middleware for correlation ----
+@app.middleware("http")
+async def add_request_id_logging(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    start = time.time()
+
+    # Basic request log
+    logger.info({
+        "event": "http.request",
+        "method": request.method,
+        "path": request.url.path,
+        "request_id": request_id,
+        "client": request.client.host if request.client else None
+    })
+
+    response = await call_next(request)
+
+    duration_ms = int((time.time() - start) * 1000)
+    logger.info({
+        "event": "http.response",
+        "status_code": response.status_code,
+        "path": request.url.path,
+        "duration_ms": duration_ms,
+        "request_id": request_id
+    })
+    # Propagate request ID back to client
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+# ---- Mongo ----
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017")  # use service DNS in compose network
 client = MongoClient(MONGO_URI)
 db = client["smartname"]
 feedback_collection = db["feedbacks"]
 search_log_collection = db["logged-data"]
-descriptions_collection = db["descriptions"]
-
-import time
-
-start_all = time.time()
-
+#descriptions_collection = db["descriptions"]
 
 class Prompt(BaseModel):
     prompt: str
@@ -49,11 +85,13 @@ class Prompt(BaseModel):
 class DetailRequest(BaseModel):
     prompt: str
     domain_name: str
+
 class Feedback(BaseModel):
     rating: int
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     comment: str
+
 class DescriptionEntry(BaseModel):
     prompt: str
     domain_name: str
@@ -61,61 +99,55 @@ class DescriptionEntry(BaseModel):
     timestamp: str
     ip_address: Optional[str] = None
 
-
 @app.post("/generate-extra-domains/")
-async def generate_extra_domains(prompt: Prompt):
-    # This is just a dummy implementation for testing.
-    # In production, you could hook this up to your own generation logic.
-    # time.sleep(5)
-    # dummy_domains = ["RentCar","RentCar","RentCar","RentCar","RentCar","RentCar"
-    dummy_domains=generate_domain_suggestions(prompt.prompt)
-    dummy_domains=get_domain_scores(dummy_domains)
-    # ]
-    #dummy_domains=[]
-    return {"domains": dummy_domains}
+async def generate_extra_domains(prompt: Prompt, request: Request):
+    logger.info({"event": "generate_extra_domains.start"})
+    domains = generate_domain_suggestions(prompt.prompt)
+    domains = get_domain_scores(domains)
+    logger.info({"event": "generate_extra_domains.done", "prompt": prompt.prompt,"count": len(domains)})
+    return {"domains": domains}
 
 @app.post("/submit-feedback/")
-def submit_feedback(feedback: Feedback):
-    feedback_data = feedback.dict()
-    # Define Sri Lankan timezone
+def submit_feedback(feedback: Feedback, request: Request):
     sri_lanka_tz = pytz.timezone("Asia/Colombo")
-    # Get current time in Sri Lankan timezone
-    feedback_data["submitted_at"] = datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S")
-    feedback_collection.insert_one(feedback_data)
+    doc = feedback.dict()
+    doc["submitted_at"] = datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S")
+    feedback_collection.insert_one(doc)
+    logger.info({"event": "feedback.submitted", "rating": feedback.rating,"name":feedback.name,"email": feedback.email})
     return {"message": "Feedback saved successfully"}
 
 @app.post("/generate-domains/")
-async def generate_domains_endpoint(prompt: Prompt,request: Request):
-
-    start_rag = time.time()
-    samples = RAG(prompt.prompt)
-    end_rag = time.time()
-    print(f"[RAG] Time taken: {end_rag - start_rag:.2f} seconds")
-
-    print(samples)
-
-    start_gemma = time.time()
-    output = gemma(prompt.prompt, samples)
-    end_gemma = time.time()
-    print(f"[Gemma] Time taken: {end_gemma - start_gemma:.2f} seconds")
-
-
-    domain_names=gemma_post_processing(output)   # for  Gemma
-    if len(domain_names)<4 and len(domain_names)>0:
-        domain_names=extend_domains(domain_names)
-    domain_names=is_domain_names_available(domain_names)
-    domain_names=get_domain_scores(domain_names)
+async def generate_domains_endpoint(prompt: Prompt, request: Request):
     sri_lanka_tz = pytz.timezone("Asia/Colombo")
-    timestamp = datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S")
+    t0 = time.time()
 
+    # Client IP (respect proxy)
     x_forwarded_for = request.headers.get('X-Forwarded-For')
-    if x_forwarded_for:
-        # X-Forwarded-For can contain multiple IPs, client is the first one
-        ip_address = x_forwarded_for.split(",")[0].strip()
-    else:
-        ip_address = request.client.host
-    #ip_address = request.client.host
+    ip_address = x_forwarded_for.split(",")[0].strip() if x_forwarded_for else (request.client.host if request.client else None)
 
+    logger.info({"event": "domains.generate.start", "ip": ip_address})
+
+    # RAG
+    t_rag0 = time.time()
+    samples = RAG(prompt.prompt)
+    t_rag1 = time.time()
+    logger.info({"event": "rag.timing", "ms": int((t_rag1 - t_rag0) * 1000)})
+
+    # LLM generate
+    t_llm0 = time.time()
+    output = gemma(prompt.prompt, samples)
+    t_llm1 = time.time()
+    logger.info({"event": "llm.timing", "ms": int((t_llm1 - t_llm0) * 1000)})
+
+    # Post-process
+    domain_names = gemma_post_processing(output)
+    if 0 < len(domain_names) < 4:
+        domain_names = extend_domains(domain_names)
+    #domain_names= extend_domain_list_shorting(domain_names)
+    domain_names = is_domain_names_available(domain_names)
+    domain_names = get_domain_scores(domain_names)
+
+    timestamp = datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S")
     log_entry = {
         "search_query": prompt.prompt,
         "domain_recommendations": domain_names,
@@ -123,42 +155,49 @@ async def generate_domains_endpoint(prompt: Prompt,request: Request):
         "timestamp": timestamp
     }
     search_log_collection.insert_one(log_entry)
+
+    logger.info(json.dumps({
+        "event": "domains.generate.done",
+        "prompt": prompt.prompt,
+        "recommendations": domain_names,
+        "ip_address": ip_address,
+        "duration_ms": int((time.time() - t0) * 1000)
+    }))
+
     return {"domains": domain_names}
 
 @app.post("/details/")
-async def get_domain_details(request: DetailRequest,fastapi_request: Request):
-
-    start_desc = time.time()
-    dd, domain_name = gemma_decsription(request.domain_name, request.prompt)
-    end_desc = time.time()
-    print(f"[gemma_description] Time taken: {end_desc - start_desc:.2f} seconds")
-
-    start_pre = time.time()
-    dd = gemma_preprocess(dd, domain_name)
-    end_pre = time.time()
-    print(f"[gemma_preprocess] Time taken: {end_pre - start_pre:.2f} seconds")
-        # Get IP
-    x_forwarded_for = fastapi_request.headers.get('X-Forwarded-For')
-    if x_forwarded_for:
-        ip_address = x_forwarded_for.split(",")[0].strip()
-    else:
-        ip_address = fastapi_request.client.host
-
-    # Prepare data
+async def get_domain_details(request_body: DetailRequest, request: Request):
+    x_forwarded_for = request.headers.get('X-Forwarded-For')
+    ip_address = x_forwarded_for.split(",")[0].strip() if x_forwarded_for else (request.client.host if request.client else None)
     sri_lanka_tz = pytz.timezone("Asia/Colombo")
-    description_entry = DescriptionEntry(
-        prompt=request.prompt,
-        domain_name=request.domain_name,
-        description=dd,
-        timestamp=datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S"),
-        ip_address=ip_address
-    )
 
-    # Save to MongoDB
-    descriptions_collection.insert_one(description_entry.dict())
+    logger.info({"event": "details.generate.start", "domain": request_body.domain_name})
+
+    t0 = time.time()
+    dd_text, domain_name = gemma_decsription(request_body.domain_name, request_body.prompt)
+    t1 = time.time()
+    dd = gemma_preprocess(dd_text, domain_name)
+    t2 = time.time()
+
+    # descriptions_collection.insert_one({
+    #     "prompt": request_body.prompt,
+    #     "domain_name": request_body.domain_name,
+    #     "description": dd,
+    #     "timestamp": datetime.now(sri_lanka_tz).strftime("%Y-%m-%d %H:%M:%S"),
+    #     "ip_address": ip_address
+    # })
+
+    logger.info({
+        "event": "details.generate.done",
+        "prompt":request_body.prompt,
+        "description":dd,
+        "ip_address": ip_address,
+        "timing_ms": {"llm": int((t1 - t0) * 1000), "preprocess": int((t2 - t1) * 1000)}
+    })
     return dd
 
 if __name__ == "__main__":
     import uvicorn
-    # Listen on all interfaces so it is accessible remotely
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Enable uvicorn access logs (already JSON via our root handler)
+    uvicorn.run(app, host="0.0.0.0", port=8000, access_log=True)

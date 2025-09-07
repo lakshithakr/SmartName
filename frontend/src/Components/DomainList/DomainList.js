@@ -15,6 +15,7 @@ const DomainList = () => {
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [showExtra, setShowExtra] = useState(false);
+  const [extraLoading, setExtraLoading] = useState(false); // ✅ for extra domains
 
   const navigate = useNavigate();
 
@@ -29,6 +30,7 @@ const DomainList = () => {
     sessionStorage.setItem("userPrompt", searchInput);
     sessionStorage.removeItem("cachedDomains");
     sessionStorage.removeItem("cachedExtraDomains");
+    setDomainNames([]);
     setExtraDomainNames([]);
     setShowExtra(false);
     setLoading(true);
@@ -65,6 +67,7 @@ const DomainList = () => {
 
   const fetchExtraDomains = async (prompt) => {
     try {
+      setExtraLoading(true);
       const res = await fetch(`${process.env.REACT_APP_API_URL}/generate-extra-domains/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,7 +76,6 @@ const DomainList = () => {
       const result = await res.json();
       setExtraDomainNames(result.domains);
 
-      // Cache extra domains
       sessionStorage.setItem(
         "cachedExtraDomains",
         JSON.stringify({
@@ -84,17 +86,17 @@ const DomainList = () => {
       );
     } catch (err) {
       console.error("Error fetching extra domains:", err);
+    } finally {
+      setExtraLoading(false);
     }
   };
 
   useEffect(() => {
-    const prompt = sessionStorage.getItem("userPrompt") || "default";
+    const prompt = sessionStorage.getItem("userPrompt") || "";
     setSearchInput(prompt);
 
+    // Handle main domains
     const cachedData = sessionStorage.getItem("cachedDomains");
-    const cachedExtra = sessionStorage.getItem("cachedExtraDomains");
-
-    // Load main domains from cache if available
     if (cachedData) {
       const { prompt: cachedPrompt, domains } = JSON.parse(cachedData);
       if (cachedPrompt === prompt) {
@@ -107,18 +109,15 @@ const DomainList = () => {
       fetchDomains(prompt);
     }
 
-    // Load extra domains from cache if available
-    if (cachedExtra) {
-      const { prompt: cachedPromptExtra, domains: extra } = JSON.parse(cachedExtra);
-      if (cachedPromptExtra === prompt) {
-        setExtraDomainNames(extra);
-      } else {
-        fetchExtraDomains(prompt);
-      }
-    } else {
-      fetchExtraDomains(prompt);
-    }
+    // ❌ Removed pre-fetching of extra domains
   }, []);
+
+  const handleShowExtra = () => {
+    if (extraDomainNames.length === 0) {
+      fetchExtraDomains(searchInput);
+    }
+    setShowExtra(true);
+  };
 
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
@@ -201,13 +200,14 @@ const DomainList = () => {
       </div>
 
       {/* Additional Suggestions Button */}
-      {extraDomainNames.length > 0 && !showExtra && visibleDomains >= domainNames.length && (
+      {!showExtra && visibleDomains >= domainNames.length && (
         <div className="text-center mt-4">
           <button
             className="btn btn-outline-secondary"
-            onClick={() => setShowExtra(true)}
+            onClick={handleShowExtra}
+            disabled={extraLoading}
           >
-            Load More Names
+            {extraLoading ? "Loading..." : "Load More Names"}
           </button>
         </div>
       )}
